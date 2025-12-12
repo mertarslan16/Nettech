@@ -1,0 +1,13 @@
+diff --git a/node_modules/vision-camera-code-scanner/android/build.gradle b/node_modules/vision-camera-code-scanner/android/build.gradle
+index 0000000..1111111 100644
+--- a/node_modules/vision-camera-code-scanner/android/build.gradle
++++ b/node_modules/vision-camera-code-scanner/android/build.gradle
+@@ -50,7 +50,7 @@ repositories {
+         url("$rootDir/../node_modules/react-native/android")
+     }
+     google()
+-    jcenter()
++    mavenCentral()
+ }
+ 
+ dependencies {

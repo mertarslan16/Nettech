@@ -1,0 +1,33 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "assets/fonts/PublicSans-Bold.ttf",
+      "sha1": "3da18c04a6d1d3e3743db92a51ac6e0b21e0c880"
+    },
+    {
+      "path": "assets/fonts/PublicSans-ExtraBold.ttf",
+      "sha1": "d087cbfd7787d4d83f0285c1f03e5a2fb7d24bc8"
+    },
+    {
+      "path": "assets/fonts/PublicSans-Light.ttf",
+      "sha1": "0ad09e586a7a06e7bdd77ad1fc7769d4f75bc1f0"
+    },
+    {
+      "path": "assets/fonts/PublicSans-Medium.ttf",
+      "sha1": "55c84c81917d243b2b4b5040182af8853aa462e8"
+    },
+    {
+      "path": "assets/fonts/PublicSans-Regular.ttf",
+      "sha1": "2a70368022e7734ad8d1cb791f127987b4cbb3e1"
+    },
+    {
+      "path": "assets/fonts/PublicSans-SemiBold.ttf",
+      "sha1": "46d0938cbee3cb7ab66e989878b05f8032aa95b9"
+    },
+    {
+      "path": "assets/fonts/PublicSans-Thin.ttf",
+      "sha1": "a16b7f04a16b9c55b7cde1278bd825a769035aad"
+    }
+  ]
+}
