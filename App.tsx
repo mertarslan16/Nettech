@@ -48,24 +48,26 @@ function App() {
         vibration: true,
       });
 
-      // // Firebase data'dan bilgileri al
-      // const title = String(remoteMessage.data?.title || 'Yeni Bildirim');
-      // const body = String(remoteMessage.data?.body || 'Bir mesajınız var');
-      // const imageUrl = remoteMessage.data?.image ? String(remoteMessage.data.image) : undefined;
+      // Firebase data'dan bilgileri al
+      const title = String(remoteMessage.notification?.title);
+      const body = String(remoteMessage.notification?.body);
+      const imageUrl = remoteMessage.notification?.image
+        ? String(remoteMessage.notification.image)
+        : undefined;
 
       // Custom Notifee bildirimi göster
-      // await notifee.displayNotification({
-      //   title: title,
-      //   body: body,
-      //   android: {
-      //     channelId,
-      //     importance: AndroidImportance.HIGH,
-      //     pressAction: { id: 'default' },
-      //     ...(imageUrl && { largeIcon: imageUrl }),
-      //     color: '#4285F4',
-      //     smallIcon: 'ic_launcher',
-      //   },
-      // });
+      await notifee.displayNotification({
+        title: title,
+        body: body,
+        android: {
+          channelId: 'default-nettech',
+          importance: AndroidImportance.HIGH,
+          pressAction: { id: 'default' },
+          ...(imageUrl && { largeIcon: imageUrl }),
+          color: '#4285F4',
+          smallIcon: 'ic_launcher',
+        },
+      });
     });
 
     // Handle notification opened app from background
