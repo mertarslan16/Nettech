@@ -107,6 +107,7 @@ const AnimatedTabBar: React.FC<BottomTabBarProps> = ({
           paddingBottom: insets.bottom,
           height: 56 + insets.bottom,
           transform: [{ translateY }],
+          overflow: isTabBarVisible ? 'visible' : 'hidden',
         },
       ]}
     >

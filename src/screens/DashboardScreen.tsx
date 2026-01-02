@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../hooks/api/useAuth';
 import { useTabBar } from '../context/TabBarContext';
@@ -8,13 +8,26 @@ import { useTabBar } from '../context/TabBarContext';
 function DashboardScreen() {
   const { setAuthToken } = useAuth();
   const { showTabBar, hideTabBar } = useTabBar();
+  const insets = useSafeAreaInsets();
   const webViewRef = useRef<WebView>(null);
   const lastScrollY = useRef(0);
   const scrollThreshold = 10; // Minimum scroll mesafesi
 
+  // Tab bar yüksekliği (56px + bottom inset)
+  const tabBarHeight = 56 + insets.bottom;
+
   // WebView içindeki localStorage/sessionStorage'dan token çekmek için inject edilecek JS
   const injectedJavaScript = `
     (function() {
+      // WebView içeriğine alt padding ekle (tab bar için)
+      const style = document.createElement('style');
+      style.textContent = \`
+        body {
+          padding-bottom: ${tabBarHeight}px !important;
+        }
+      \`;
+      document.head.appendChild(style);
+
       // Token'ı çeşitli kaynaklardan almaya çalış
       function getToken() {
         // 1. localStorage'dan
