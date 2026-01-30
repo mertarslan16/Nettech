@@ -192,12 +192,10 @@ const styles = StyleSheet.create({
     borderRightColor: '#E5E5EA',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    // Make the tab bar part of the normal layout flow so
-    // screens are rendered above it instead of being hidden
-    // underneath an absolutely positioned bar.
-    position: 'relative',
+    position: 'absolute',
     left: 0,
     right: 0,
+    bottom: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.08,
@@ -205,15 +203,15 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   tabBar: {
+    flex: 1,
     flexDirection: 'row',
-    paddingTop: 8,
     paddingHorizontal: 8,
+    alignItems: 'flex-end',
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingVertical: 4,
   },
   iconWrapper: {
     height: 37,

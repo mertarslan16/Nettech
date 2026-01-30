@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { StyleSheet } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../hooks/api/useAuth';
 import { useTabBar } from '../context/TabBarContext';
@@ -8,22 +8,19 @@ import { useCart } from '../context/CartContext';
 
 function DashboardScreen() {
   const { setAuthToken } = useAuth();
-  const { showTabBar, hideTabBar, isTabBarVisible } = useTabBar();
+  const { showTabBar, hideTabBar } = useTabBar();
   const { setCartItems, setWebViewRef, syncCartData } = useCart();
-  const insets = useSafeAreaInsets();
   const webViewRef = useRef<WebView>(null);
   const lastScrollY = useRef(0);
 
   // WebView ref'ini CartContext'e kaydet
-  useEffect(() => {
+  React.useEffect(() => {
     setWebViewRef(webViewRef);
   }, [setWebViewRef]);
+
   const lastTabBarChangeTime = useRef(0);
   const scrollThreshold = 20; // Minimum scroll mesafesi
   const tabBarCooldown = 300; // Tab bar değişiklikleri arasında minimum süre (ms)
-
-  // Tab bar yüksekliği (56px + bottom inset)
-  const tabBarHeight = 56 + insets.bottom;
 
   // WebView içindeki localStorage/sessionStorage'dan token çekmek için inject edilecek JS
   const injectedJavaScript = `
@@ -193,6 +190,86 @@ function DashboardScreen() {
 
       window.addEventListener('scroll', handleScroll, { passive: true });
 
+      // Hamburger menü ve popup durumunu izle
+      let isMenuOpen = false;
+
+      function checkOverlayState() {
+        let overlayDetected = false;
+
+        // 1. Vue VerticalNav - hamburger menü kontrolü (sitenize özel)
+        const verticalNav = document.querySelector('.layout-vertical-nav.visible');
+        const overlayNav = document.querySelector('.layout-vertical-nav.overlay-nav.visible');
+        if (verticalNav || overlayNav) {
+          overlayDetected = true;
+        }
+
+        // 2. Vuetify dialog/modal kontrolü
+        const vuetifyDialog = document.querySelector('.v-dialog.v-dialog--active, .v-overlay--active .v-dialog');
+        const vuetifyOverlay = document.querySelector('.v-overlay.v-overlay--active:not(.v-overlay--contained)');
+        if (vuetifyDialog || vuetifyOverlay) {
+          overlayDetected = true;
+        }
+
+        // 3. Vuetify navigation drawer
+        const vNavigationDrawer = document.querySelector('.v-navigation-drawer--active, .v-navigation-drawer.v-navigation-drawer--active');
+        if (vNavigationDrawer) {
+          overlayDetected = true;
+        }
+
+        // 4. Vuetify bottom sheet / menu
+        const vBottomSheet = document.querySelector('.v-bottom-sheet.v-dialog--active');
+        const vMenu = document.querySelector('.v-menu > .v-overlay--active');
+        if (vBottomSheet || vMenu) {
+          overlayDetected = true;
+        }
+
+        // 5. Genel overlay backdrop kontrolü
+        const backdrop = document.querySelector('.layout-overlay.visible, .v-overlay__scrim');
+        if (backdrop) {
+          const style = window.getComputedStyle(backdrop);
+          if (style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity) > 0) {
+            overlayDetected = true;
+          }
+        }
+
+        // 6. Body scroll engellenmiş mi
+        const bodyStyle = window.getComputedStyle(document.body);
+        const bodyScrollBlocked = bodyStyle.overflow === 'hidden' || bodyStyle.overflowY === 'hidden';
+
+        // 7. Aria dialog kontrolü
+        const openDialog = document.querySelector('[role="dialog"]:not([aria-hidden="true"])');
+
+        const menuOpen = overlayDetected || (bodyScrollBlocked && !!openDialog);
+
+        if (menuOpen !== isMenuOpen) {
+          isMenuOpen = menuOpen;
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'UI_OVERLAY_STATE',
+            isOpen: isMenuOpen
+          }));
+          console.log('📱 UI Overlay State:', isMenuOpen ? 'OPEN' : 'CLOSED');
+        }
+      }
+
+      // MutationObserver ile DOM değişikliklerini izle
+      const observer = new MutationObserver((mutations) => {
+        // Debounce için requestAnimationFrame kullan
+        requestAnimationFrame(checkOverlayState);
+      });
+
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style'],
+        childList: true,
+        subtree: true
+      });
+
+      // Periyodik kontrol (bazı framework'ler için)
+      setInterval(checkOverlayState, 300);
+
+      // İlk kontrol
+      setTimeout(checkOverlayState, 500);
+
       console.log('✅ React Native WebView injection completed');
       true;
     })();
@@ -256,6 +333,15 @@ function DashboardScreen() {
           });
           break;
 
+        case 'UI_OVERLAY_STATE':
+          // Hamburger menü veya popup açık/kapalı durumu
+          if (data.isOpen) {
+            hideTabBar();
+          } else {
+            showTabBar();
+          }
+          break;
+
         case 'FETCH_REQUEST':
         case 'FETCH_RESPONSE':
         case 'FETCH_ERROR':
@@ -271,13 +357,7 @@ function DashboardScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={[
-        styles.container,
-        { paddingBottom: isTabBarVisible ? tabBarHeight : 0 },
-      ]}
-      edges={['top']}
-    >
+    <SafeAreaView style={styles.container} edges={['top']}>
       <WebView
         ref={webViewRef}
         source={{ uri: 'https://nettech.kodpilot.com' }}
