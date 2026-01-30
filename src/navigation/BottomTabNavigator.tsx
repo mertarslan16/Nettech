@@ -9,11 +9,16 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DashboardScreen from '../screens/DashboardScreen';
 import CameraStackNavigator from './CameraStackNavigator';
 import NotificationScreen from '../screens/NotificationScreen';
-import SettingsScreen from '../screens/SettingsScreen';
+import BasketScreen from '../screens/Basket';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-const renderTabBarIcon = (route: any, focused: boolean, color: string, size: number) => {
+const renderTabBarIcon = (
+  route: any,
+  focused: boolean,
+  color: string,
+  size: number,
+) => {
   let iconName: string;
 
   if (route.name === 'Dashboard') {
@@ -22,8 +27,8 @@ const renderTabBarIcon = (route: any, focused: boolean, color: string, size: num
     iconName = focused ? 'camera' : 'camera-outline';
   } else if (route.name === 'Notification') {
     iconName = focused ? 'bell' : 'bell-outline';
-  } else if (route.name === 'Settings') {
-    iconName = focused ? 'cog' : 'cog-outline';
+  } else if (route.name === 'Basket') {
+    iconName = focused ? 'cart' : 'cart-outline';
   } else {
     iconName = 'help-circle-outline';
   }
@@ -37,7 +42,7 @@ function BottomTabNavigator() {
   return (
     <Tab.Navigator
       initialRouteName="Dashboard"
-      tabBar={(props) => <AnimatedTabBar {...props} />}
+      tabBar={props => <AnimatedTabBar {...props} />}
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) =>
           renderTabBarIcon(route, focused, color, size),
@@ -79,10 +84,10 @@ function BottomTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
+        name="Basket"
+        component={BasketScreen}
         options={{
-          tabBarLabel: 'Ayarlar',
+          tabBarLabel: 'Sepetim',
         }}
       />
     </Tab.Navigator>

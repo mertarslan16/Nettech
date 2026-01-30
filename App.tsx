@@ -14,6 +14,7 @@ import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
 import BottomTabNavigator from './src/navigation/BottomTabNavigator';
 import { AuthProvider } from './src/context/AuthContext';
 import { TabBarProvider } from './src/context/TabBarContext';
+import { CartProvider } from './src/context/CartContext';
 
 function App() {
   useEffect(() => {
@@ -107,18 +108,20 @@ function App() {
 
   return (
     <AuthProvider>
-      <TabBarProvider>
-        <SafeAreaProvider>
-          <StatusBar
-            barStyle="light-content"
-            backgroundColor="#000"
-            translucent={false}
-          />
-          <NavigationContainer>
-            <BottomTabNavigator />
-          </NavigationContainer>
-        </SafeAreaProvider>
-      </TabBarProvider>
+      <CartProvider>
+        <TabBarProvider>
+          <SafeAreaProvider>
+            <StatusBar
+              barStyle="light-content"
+              backgroundColor="#000"
+              translucent={false}
+            />
+            <NavigationContainer>
+              <BottomTabNavigator />
+            </NavigationContainer>
+          </SafeAreaProvider>
+        </TabBarProvider>
+      </CartProvider>
     </AuthProvider>
   );
 }

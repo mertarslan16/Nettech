@@ -1,162 +1,157 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  StyleSheet,
+  FlatList,
+  View,
+  Text,
+  ActivityIndicator,
+  RefreshControl,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import notifee, { AndroidImportance } from '@notifee/react-native';
-import messaging from '@react-native-firebase/messaging';
+import apiClient from '../api/client/apiClient';
+
+const iconMapping: Record<string, string> = {
+  ClockIcon: 'tabler-clock',
+  ShoppingCartIcon: 'tabler-shopping-cart',
+  AlertCircleIcon: 'tabler-alert-circle',
+  UserIcon: 'tabler-user',
+  PackageIcon: 'tabler-package',
+  BellIcon: 'tabler-bell',
+};
+
+type NotificationItem = {
+  id: number | string;
+  title: string;
+  message: string;
+  time: string;
+  timestamp: Date | null;
+  icon: string;
+  color: string;
+  read: boolean;
+  to: string | null;
+  rawData?: any;
+};
+
+function formatRelativeTime(d: Date) {
+  const now = new Date();
+  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+
+  if (diff < 60) return `${diff} saniye önce`;
+  if (diff < 3600) return `${Math.floor(diff / 60)} dakika önce`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} saat önce`;
+  return `${Math.floor(diff / 86400)} gün önce`;
+}
+
+async function fetchNotificationsFromApi(): Promise<NotificationItem[]> {
+  const res = await apiClient.get<any>('/user/notifications');
+
+  // Expecting array in res.data or res.data.notifications
+  const rawList =
+    (res && res.success && Array.isArray(res.data) && res.data) ||
+    (res &&
+      res.success &&
+      res.data &&
+      Array.isArray(res.data.notifications) &&
+      res.data.notifications) ||
+    [];
+
+  const mapped: NotificationItem[] = rawList
+    .slice()
+    .reverse()
+    .map((n: any) => ({
+      id: n.id,
+      title: n.data?.title || 'Bildirim',
+      message: (n.data?.message || '').replace(/<br\s*\/?/gi, ' '),
+      time: n.created_at ? formatRelativeTime(new Date(n.created_at)) : '',
+      timestamp: n.created_at ? new Date(n.created_at) : null,
+      icon: iconMapping[n.data?.icon] || 'tabler-bell',
+      color:
+        n.data?.category === 'success'
+          ? 'success'
+          : n.data?.category === 'warning'
+          ? 'warning'
+          : n.data?.category === 'error'
+          ? 'error'
+          : 'info',
+      read: !!n.read_at,
+      to: n.data?.to || null,
+      rawData: n,
+    }));
+
+  return mapped;
+}
 
 function NotificationScreen() {
-  const [fcmToken, setFcmToken] = useState<string>('');
-  const [permissionStatus, setPermissionStatus] = useState<string>('');
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  useEffect(() => {
-    getFCMToken();
-    checkPermissionStatus();
+  const load = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+
+      const list = await fetchNotificationsFromApi();
+      setNotifications(list);
+    } catch (err) {
+      console.error('Bildirimler yüklenirken hata:', err);
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  async function getFCMToken() {
-    try {
-      const token = await messaging().getToken();
-      setFcmToken(token);
-      console.log('FCM Token:', token);
-    } catch (error) {
-      console.error('Error getting FCM token:', error);
-    }
-  }
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  async function checkPermissionStatus() {
-    const authStatus = await messaging().hasPermission();
-    let status = 'Unknown';
-
-    if (authStatus === messaging.AuthorizationStatus.AUTHORIZED) {
-      status = 'Authorized';
-    } else if (authStatus === messaging.AuthorizationStatus.PROVISIONAL) {
-      status = 'Provisional';
-    } else if (authStatus === messaging.AuthorizationStatus.DENIED) {
-      status = 'Denied';
-    } else if (authStatus === messaging.AuthorizationStatus.NOT_DETERMINED) {
-      status = 'Not Determined';
-    }
-
-    setPermissionStatus(status);
-  }
-
-  async function requestNotificationPermission() {
-    try {
-      const authStatus = await messaging().requestPermission();
-      const enabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-      if (enabled) {
-        console.log('Notification permission granted');
-        await checkPermissionStatus();
-        await getFCMToken();
-      } else {
-        console.log('Notification permission denied');
-        await checkPermissionStatus();
-      }
-    } catch (error) {
-      console.error('Error requesting permission:', error);
-    }
-  }
-
-  async function onDisplayNotification() {
-    try {
-      // Request permissions (required for iOS)
-      await notifee.requestPermission();
-
-      // Create a channel (required for Android)
-      const channelId = await notifee.createChannel({
-        id: 'default-nettech',
-        name: 'Default Channel',
-        importance: AndroidImportance.HIGH,
-      });
-
-      // Display a notification
-      await notifee.displayNotification({
-        title: 'Test Notification',
-        body: 'This is a local test notification from Notifee',
-        android: {
-          channelId,
-          importance: AndroidImportance.HIGH,
-          pressAction: {
-            id: 'default-nettech',
-          },
-        },
-      });
-    } catch (error) {
-      console.error('Error displaying notification:', error);
-    }
-  }
-
-  async function deleteToken() {
-    try {
-      await messaging().deleteToken();
-      setFcmToken('');
-      console.log('FCM Token deleted');
-      // Get new token
-      await getFCMToken();
-    } catch (error) {
-      console.error('Error deleting token:', error);
-    }
-  }
+  const renderItem = ({ item }: { item: NotificationItem }) => (
+    <TouchableOpacity
+      style={[styles.item, item.read ? styles.read : styles.unread]}
+      activeOpacity={0.8}
+    >
+      <View style={styles.itemLeft}>
+        <View style={styles.iconPlaceholder} />
+      </View>
+      <View style={styles.itemBody}>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.message} numberOfLines={3} ellipsizeMode="tail">
+          {item.message}
+        </Text>
+      </View>
+      <View style={styles.itemRight}>
+        <Text style={styles.time}>{item.time}</Text>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.section}>
-          <Text style={styles.title}>Firebase Cloud Messaging</Text>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.label}>Permission Status:</Text>
-            <Text style={styles.value}>{permissionStatus}</Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.label}>FCM Token:</Text>
-            <Text style={styles.tokenText} numberOfLines={3}>
-              {fcmToken || 'No token available'}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.button}
-            onPress={requestNotificationPermission}
-          >
-            <Text style={styles.buttonText}>Request Permission</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.button}
-            onPress={onDisplayNotification}
-          >
-            <Text style={styles.buttonText}>Display Local Notification</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.button}
-            onPress={getFCMToken}
-          >
-            <Text style={styles.buttonText}>Refresh FCM Token</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, styles.dangerButton]}
-            onPress={deleteToken}
-          >
-            <Text style={styles.buttonText}>Delete & Regenerate Token</Text>
-          </TouchableOpacity>
-
-          <View style={styles.infoBox}>
-            <Text style={styles.infoTitle}>How to test:</Text>
-            <Text style={styles.infoText}>
-              1. Copy the FCM Token above{'\n'}
-              2. Use Firebase Console or your backend to send a test notification{'\n'}
-              3. The app will receive notifications in foreground, background, and quit states
-            </Text>
-          </View>
+      {loading && notifications.length === 0 ? (
+        <View style={styles.loader}>
+          <ActivityIndicator size="large" />
         </View>
-      </ScrollView>
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={i => String(i.id)}
+          renderItem={renderItem}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => load(true)}
+            />
+          }
+          ListEmptyComponent={() => (
+            <View style={styles.empty}>
+              <Text>Gösterilecek bildirim yok.</Text>
+            </View>
+          )}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -164,80 +159,69 @@ function NotificationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
   },
   scrollContent: {
     padding: 16,
   },
-  section: {
-    gap: 16,
+  loader: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  infoCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  tokenText: {
-    fontSize: 12,
-    color: '#333',
-    fontFamily: 'monospace',
-    backgroundColor: '#f0f0f0',
+  item: {
+    flexDirection: 'row',
     padding: 12,
     borderRadius: 8,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: '#fff',
+    marginBottom: 10,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  dangerButton: {
-    backgroundColor: '#FF3B30',
+  unread: {
+    backgroundColor: '#f8fbff',
   },
-  buttonText: {
-    color: '#fff',
+  read: {
+    opacity: 0.7,
+  },
+  itemLeft: {
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#eee',
+  },
+  itemBody: {
+    flex: 1,
+    paddingHorizontal: 12,
+  },
+  title: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 4,
   },
-  infoBox: {
-    backgroundColor: '#FFF3CD',
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFC107',
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#856404',
-    marginBottom: 8,
-  },
-  infoText: {
+  message: {
     fontSize: 14,
-    color: '#856404',
-    lineHeight: 22,
+    color: '#444',
+  },
+  itemRight: {
+    width: 80,
+    alignItems: 'flex-end',
+  },
+  time: {
+    fontSize: 12,
+    color: '#888',
+  },
+  empty: {
+    padding: 40,
+    alignItems: 'center',
   },
 });
 

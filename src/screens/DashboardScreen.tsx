@@ -1,17 +1,26 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../hooks/api/useAuth';
 import { useTabBar } from '../context/TabBarContext';
+import { useCart } from '../context/CartContext';
 
 function DashboardScreen() {
   const { setAuthToken } = useAuth();
-  const { showTabBar, hideTabBar } = useTabBar();
+  const { showTabBar, hideTabBar, isTabBarVisible } = useTabBar();
+  const { setCartItems, setWebViewRef, syncCartData } = useCart();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef<WebView>(null);
   const lastScrollY = useRef(0);
-  const scrollThreshold = 10; // Minimum scroll mesafesi
+
+  // WebView ref'ini CartContext'e kaydet
+  useEffect(() => {
+    setWebViewRef(webViewRef);
+  }, [setWebViewRef]);
+  const lastTabBarChangeTime = useRef(0);
+  const scrollThreshold = 20; // Minimum scroll mesafesi
+  const tabBarCooldown = 300; // Tab bar değişiklikleri arasında minimum süre (ms)
 
   // Tab bar yüksekliği (56px + bottom inset)
   const tabBarHeight = 56 + insets.bottom;
@@ -19,15 +28,6 @@ function DashboardScreen() {
   // WebView içindeki localStorage/sessionStorage'dan token çekmek için inject edilecek JS
   const injectedJavaScript = `
     (function() {
-      // WebView içeriğine alt padding ekle (tab bar için)
-      const style = document.createElement('style');
-      style.textContent = \`
-        body {
-          padding-bottom: ${tabBarHeight}px !important;
-        }
-      \`;
-      document.head.appendChild(style);
-
       // Token'ı çeşitli kaynaklardan almaya çalış
       function getToken() {
         // 1. localStorage'dan
@@ -74,11 +74,31 @@ function DashboardScreen() {
         }
       }
 
+      // Sepet verilerini oku ve gönder
+      function sendBasketData() {
+        const basketData = localStorage.getItem('basket');
+        const cartType = localStorage.getItem('cartType');
+        const cartAccountData = localStorage.getItem('cartAccount');
+        const cartOrderData = localStorage.getItem('cartOrder');
+
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'BASKET_DATA',
+          basket: basketData ? JSON.parse(basketData) : [],
+          cartType: cartType || null,
+          cartAccount: cartAccountData ? JSON.parse(cartAccountData) : null,
+          cartOrder: cartOrderData ? JSON.parse(cartOrderData) : null
+        }));
+      }
+
       // Sayfa yüklendiğinde kontrol et
       checkAndSendToken();
+      sendBasketData();
 
       // Her 2 saniyede bir kontrol et (login sonrası için)
       setInterval(checkAndSendToken, 2000);
+
+      // Sepet değişikliklerini dinle
+      setInterval(sendBasketData, 3000);
 
       // localStorage değişikliklerini dinle
       const originalSetItem = localStorage.setItem;
@@ -193,24 +213,47 @@ function DashboardScreen() {
         case 'SCROLL':
           const { scrollY, lastScrollY: prevScrollY } = data;
           const scrollDifference = scrollY - prevScrollY;
+          const now = Date.now();
 
-          // Scroll yönünü kontrol et
+          // Ani pozisyon değişikliklerini ignore et (popup açılma/kapanma)
+          // Gerçek kullanıcı scroll'u genelde 150px'den az olur
+          if (Math.abs(scrollDifference) > 150) {
+            lastScrollY.current = scrollY;
+            break;
+          }
+
+          // Cooldown kontrolü - çok hızlı değişiklikleri engelle
+          if (now - lastTabBarChangeTime.current < tabBarCooldown) {
+            lastScrollY.current = scrollY;
+            break;
+          }
+
+          // Scroll yönünü kontrol et - sadece gerçek kullanıcı scroll'u
           if (Math.abs(scrollDifference) > scrollThreshold) {
-            if (scrollDifference > 0) {
-              // Aşağı scroll - bottom bar'ı gizle
+            if (scrollDifference > 0 && scrollY > 100) {
+              // Aşağı scroll ve sayfa üstünde değilse - bottom bar'ı gizle
               hideTabBar();
-            } else {
-              // Yukarı scroll - bottom bar'ı göster
+              lastTabBarChangeTime.current = now;
+            } else if (scrollDifference < -scrollThreshold) {
+              // Belirgin yukarı scroll - bottom bar'ı göster
               showTabBar();
+              lastTabBarChangeTime.current = now;
             }
           }
 
-          // Sayfanın en üstündeysek bottom bar'ı göster
-          if (scrollY <= 50) {
-            showTabBar();
-          }
-
           lastScrollY.current = scrollY;
+          break;
+
+        case 'BASKET_DATA':
+          if (Array.isArray(data.basket)) {
+            setCartItems(data.basket);
+          }
+          // cartType, cartAccount, cartOrder verilerini senkronize et
+          syncCartData({
+            cartType: data.cartType,
+            cartAccount: data.cartAccount,
+            cartOrder: data.cartOrder,
+          });
           break;
 
         case 'FETCH_REQUEST':
@@ -228,7 +271,13 @@ function DashboardScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        { paddingBottom: isTabBarVisible ? tabBarHeight : 0 },
+      ]}
+      edges={['top']}
+    >
       <WebView
         ref={webViewRef}
         source={{ uri: 'https://nettech.kodpilot.com' }}

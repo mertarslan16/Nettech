@@ -2,7 +2,7 @@ export type RootTabParamList = {
   Dashboard: undefined;
   CameraStack: undefined;
   Notification: undefined;
-  Settings: undefined;
+  Basket: undefined;
 };
 
 export type CameraStackParamList = {

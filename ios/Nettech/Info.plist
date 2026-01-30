@@ -36,7 +36,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Fotoğraf çekmek için kamera erişimi gerekli</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>Konum bilgisi kullanılırken erişim gerekli</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Video çekmek için mikrofon erişimi gerekli</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

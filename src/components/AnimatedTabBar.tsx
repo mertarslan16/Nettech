@@ -10,6 +10,7 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
 import { useTabBar } from '../context/TabBarContext';
+import { useCart } from '../context/CartContext';
 
 interface TabItemProps {
   icon: React.ReactNode;
@@ -17,6 +18,7 @@ interface TabItemProps {
   isFocused: boolean;
   onPress: () => void;
   onLongPress: () => void;
+  badge?: number;
 }
 
 const TabItem: React.FC<TabItemProps> = ({
@@ -25,6 +27,7 @@ const TabItem: React.FC<TabItemProps> = ({
   isFocused,
   onPress,
   onLongPress,
+  badge,
 }) => {
   const scaleAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
@@ -66,6 +69,11 @@ const TabItem: React.FC<TabItemProps> = ({
         >
           {icon}
         </Animated.View>
+        {badge !== undefined && badge > 0 && (
+          <View style={styles?.badgeContainer}>
+            <Text style={styles?.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+          </View>
+        )}
       </View>
       <Text
         style={[
@@ -89,7 +97,9 @@ const AnimatedTabBar: React.FC<BottomTabBarProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { isTabBarVisible } = useTabBar();
+  const { getTotalQuantity } = useCart();
   const translateY = useRef(new Animated.Value(0)).current;
+  const cartBadgeCount = getTotalQuantity();
 
   useEffect(() => {
     Animated.timing(translateY, {
@@ -151,6 +161,9 @@ const AnimatedTabBar: React.FC<BottomTabBarProps> = ({
               })
             : null;
 
+          // Settings tab'ında sepet badge'i göster
+          const badge = route.name === 'Settings' ? cartBadgeCount : undefined;
+
           return (
             <TabItem
               key={route.key}
@@ -159,6 +172,7 @@ const AnimatedTabBar: React.FC<BottomTabBarProps> = ({
               isFocused={isFocused}
               onPress={onPress}
               onLongPress={onLongPress}
+              badge={badge}
             />
           );
         })}
@@ -178,8 +192,10 @@ const styles = StyleSheet.create({
     borderRightColor: '#E5E5EA',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    position: 'absolute',
-    bottom: 0,
+    // Make the tab bar part of the normal layout flow so
+    // screens are rendered above it instead of being hidden
+    // underneath an absolutely positioned bar.
+    position: 'relative',
     left: 0,
     right: 0,
     shadowColor: '#000',
@@ -200,7 +216,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   iconWrapper: {
-    height: 40,
+    height: 37,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 0,
@@ -208,9 +224,9 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 37,
+    height: 37,
+    borderRadius: 20,
   },
   activeIconContainer: {
     backgroundColor: colors.primary,
@@ -223,6 +239,25 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     letterSpacing: 0.1,
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    backgroundColor: colors.error,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
 
