@@ -54,6 +54,7 @@ interface CartContextType {
   clearCart: () => void;
   clearAccount: () => void;
   navigateToShop: () => void;
+  navigateToBasket: () => void;
   getTotalQuantity: () => number;
   getTotalAmount: () => number;
   setWebViewRef: (ref: React.RefObject<WebView | null>) => void;
@@ -224,6 +225,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const navigateToBasket = () => {
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(`
+        window.location.href = '/basket/basket';
+        true;
+      `);
+    }
+  };
+
   const getTotalQuantity = () => {
     return cartItems.reduce((sum, item) => sum + (item.qty || 0), 0);
   };
@@ -252,6 +262,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         clearCart,
         clearAccount,
         navigateToShop,
+        navigateToBasket,
         getTotalQuantity,
         getTotalAmount,
         setWebViewRef,
